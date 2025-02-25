@@ -20,7 +20,7 @@ import { handleMessage } from './controller';
 
 // Load environment variables from .env file
 dotenv.config();
-const PORT = process.env.EXPRESS_PORT || 5050;
+const PORT = process.env.PORT || 5050;
 
 // Initialize application
 const app = express();
