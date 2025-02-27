@@ -12,10 +12,13 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Middleware to log all incoming requests
+// Add logging middleware
 app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-    next();
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  if (req.method === 'POST') {
+    console.log('Request body:', JSON.stringify(req.body));
+  }
+  next();
 });
 
 // Map to store session details
@@ -52,25 +55,40 @@ async function generateNames(): Promise<{parentName: string, childName: string}>
     }
 }
 
+// Basic healthcheck
+app.get('/', (req, res) => {
+    res.send('Autism Awareness Training API is running');
+});
+
 // API Endpoint for Chat Requests
 app.post('/chat', async (req, res) => {
-    console.log("Received chat request:", JSON.stringify(req.body));
+    console.log("Chat request received:", JSON.stringify(req.body));
     
-    // Handle different input formats (Soul Machines uses different structure)
+    // Extract user message and session ID based on request format
     let userMessage = "";
     let sessionId = "default";
     
-    if (req.body.text) {
-        // Standard format from your previous implementation
-        userMessage = req.body.text;
-        sessionId = req.body.sessionId || "default";
-    } else if (req.body.input && req.body.input.text) {
-        // Soul Machines format
+    // Soul Machines format
+    if (req.body.input && req.body.input.text) {
         userMessage = req.body.input.text;
         sessionId = req.body.personaId || "default";
-    } else {
-        console.log("Warning: Unrecognized request format");
-        res.json({ output: { text: "I'm sorry, I didn't catch what you said." } });
+        console.log("Soul Machines format detected");
+    } 
+    // Standard format
+    else if (req.body.text) {
+        userMessage = req.body.text;
+        sessionId = req.body.sessionId || "default";
+        console.log("Standard format detected");
+    }
+    // Unknown format
+    else {
+        console.error("Unknown request format:", JSON.stringify(req.body));
+        
+        // Try to respond in Soul Machines format
+        res.json({ 
+            answer: "I'm sorry, I didn't catch what you said. Could you please repeat that?",
+            answerAvailable: true
+        });
         return;
     }
 
@@ -84,6 +102,7 @@ app.post('/chat', async (req, res) => {
             conversationHistory: [] 
         };
         sessions.set(sessionId, sessionData);
+        console.log(`New session created with ID ${sessionId}, parent: ${names.parentName}, child: ${names.childName}`);
     }
 
     sessionData.conversationHistory.push({ officer: userMessage, parent: "" });
@@ -91,20 +110,6 @@ app.post('/chat', async (req, res) => {
     const conversationContext = sessionData.conversationHistory.map(entry => 
         `Officer: ${entry.officer}\nParent: ${entry.parent}`
     ).join('\n');
-
-    // List of autism signs and behaviors that the parent can describe
-    const autismSigns = `
-    - Difficulty with social interactions and making eye contact
-    - Sensory sensitivities (to lights, sounds, textures, etc.)
-    - Repetitive behaviors or movements (stimming)
-    - Need for routine and difficulty with unexpected changes
-    - Communication differences (delayed speech, echolalia, literal interpretation)
-    - Meltdowns when overwhelmed (different from tantrums)
-    - Special interests with intense focus
-    - Difficulty understanding social cues and nonverbal communication
-    - Challenges with transitions between activities
-    - Different responses to pain or distress
-    `;
 
     const systemPrompt = `
         You are ${sessionData.parentName}, the parent of ${sessionData.childName} who has autism. 
@@ -160,55 +165,62 @@ app.post('/chat', async (req, res) => {
         const responseText = response.choices[0].message.content || "I'm not sure how to respond to that.";
 
         if (responseText.includes("Sorry") || responseText.trim() === "" || responseText.includes("AI") || responseText.includes("language model")) {
-            res.json({ 
-                output: { 
-                    text: "I'm just trying to share what I've experienced with my child. Can you clarify what you'd like to know about raising a child with autism?" 
-                } 
-            });
+            console.log("Response contains filtered content, sending fallback");
+            
+            // Detect format and send appropriate response
+            if (req.body.input) {
+                // Soul Machines format
+                res.json({ 
+                    answer: "I'm just trying to share what I've experienced with my child. Can you clarify what you'd like to know about raising a child with autism?",
+                    answerAvailable: true
+                });
+            } else {
+                // Standard format
+                res.json({ 
+                    output: { 
+                        text: "I'm just trying to share what I've experienced with my child. Can you clarify what you'd like to know about raising a child with autism?" 
+                    } 
+                });
+            }
             return;
         }
 
         sessionData.conversationHistory[sessionData.conversationHistory.length - 1].parent = responseText;
-
         sessionData.interactions++;
         if (sessionData.interactions >= 70) {
             sessions.delete(sessionId);
         }
 
-        // Format response according to expected format
-        let formattedResponse;
+        console.log("Sending response:", responseText);
         
-        // Check if this is a Soul Machines request by checking structure
-        if (req.body.input && req.body.personaId) {
-            // Soul Machines response format
-            formattedResponse = {
+        // Detect format and send appropriate response
+        if (req.body.input) {
+            // Soul Machines format
+            res.json({ 
                 answer: responseText,
                 answerAvailable: true
-            };
+            });
         } else {
             // Standard format
-            formattedResponse = { 
+            res.json({ 
                 output: { 
                     text: responseText 
                 } 
-            };
+            });
         }
-        
-        console.log("Sending response:", JSON.stringify(formattedResponse));
-        res.json(formattedResponse);
 
     } catch (error) {
         console.error("Error calling OpenAI API:", error);
         
         // Format error response based on request type
-        if (req.body.input && req.body.personaId) {
-            // Soul Machines error format
+        if (req.body.input) {
+            // Soul Machines format
             res.json({ 
                 answer: "I'm sorry, I'm having trouble organizing my thoughts right now. Could you give me a moment?",
                 answerAvailable: true
             });
         } else {
-            // Standard error format
+            // Standard format
             res.json({ 
                 output: { 
                     text: "I'm sorry, I'm having trouble organizing my thoughts right now. Could you give me a moment?" 
@@ -216,40 +228,6 @@ app.post('/chat', async (req, res) => {
             });
         }
     }
-});
-
-// Optional: Endpoint to reset conversation
-app.post('/reset', (req, res) => {
-    const sessionId = req.body.sessionId || "default";
-    sessions.delete(sessionId);
-    res.json({ success: true, message: "Conversation reset successfully" });
-});
-
-// Optional: Endpoint to get session info (for debugging)
-app.get('/session/:sessionId', (req, res) => {
-    const sessionId = req.params.sessionId;
-    const sessionData = sessions.get(sessionId);
-    
-    if (!sessionData) {
-        return res.status(404).json({ error: "Session not found" });
-    }
-    
-    res.json({
-        parentName: sessionData.parentName,
-        childName: sessionData.childName,
-        interactions: sessionData.interactions,
-        conversationLength: sessionData.conversationHistory.length
-    });
-});
-
-// Add a simple healthcheck endpoint
-app.get('/', (req, res) => {
-    res.send('Autism Awareness Training API is running');
-});
-
-// Add a ping endpoint for testing
-app.get('/ping', (req, res) => {
-    res.json({ status: 'ok', message: 'Server is running' });
 });
 
 // Export the Express app
