@@ -4,6 +4,7 @@ import { createServer } from 'http';
 import dotenv from 'dotenv';
 import { app } from './controller';
 import axios from 'axios';
+import { SMmessage, ConversationRequest, ConversationResponse } from './interfaces';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -63,22 +64,16 @@ wss.on('connection', (ws: WebSocket) => {
                     
                     console.log('Response from conversation endpoint:', response.data);
                     
-                    // Send response back via WebSocket in the format Soul Machines expects
-                    // Include all possible fields that Soul Machines might need
-                    const wsResponse = {
+                    // Format the response according to Soul Machines template
+                    const wsResponse: SMmessage = {
                         category: 'scene',
-                        kind: 'event',
+                        kind: 'request', // Changed from 'event' to 'request'
                         name: 'conversationResponse',
                         body: {
-                            personaId: personaId,
+                            input: { text: userMessage },
+                            output: { text: response.data.answer }, // Changed structure to match template
                             variables: {
                                 Turn_Id: turnId
-                            },
-                            response: {
-                                answer: response.data.answer,
-                                text: response.data.answer, // Explicitly add text field
-                                answerAvailable: true,
-                                speakResults: true // Explicitly set to true
                             }
                         }
                     };
@@ -88,21 +83,16 @@ wss.on('connection', (ws: WebSocket) => {
                 } catch (error) {
                     console.error('Error processing conversation request:', error);
                     
-                    // Send an error response with all required fields
-                    const errorResponse = {
+                    // Send an error response in the correct format
+                    const errorResponse: SMmessage = {
                         category: 'scene',
-                        kind: 'event',
+                        kind: 'request',
                         name: 'conversationResponse',
                         body: {
-                            personaId: personaId,
+                            input: { text: userMessage },
+                            output: { text: "I'm sorry, I'm having trouble with my thoughts right now. Could we try again?" },
                             variables: {
                                 Turn_Id: turnId
-                            },
-                            response: {
-                                answer: "I'm sorry, I'm having trouble with my thoughts right now. Could we try again?",
-                                text: "I'm sorry, I'm having trouble with my thoughts right now. Could we try again?",
-                                answerAvailable: true,
-                                speakResults: true
                             }
                         }
                     };

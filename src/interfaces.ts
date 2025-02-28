@@ -12,25 +12,12 @@ export interface ConversationRequest {
     personaId?: string;
 }
 
-// This is the key interface that needs to change
+// Changed to match the Soul Machines template
 export interface ConversationResponse {
-    answer: string;
-    answerAvailable: boolean;
-}
-
-// This is the format for sending WebSocket responses back to Soul Machines
-export interface SMConversationResponse {
-    category: string;
-    kind: string;
-    name: string;
-    body: {
-        personaId: string;
-        variables?: { [key: string]: any };
-        response: {
-            answer: string;
-            answerAvailable: boolean;
-        }
-    }
+    input?: { text: string };
+    output: { text: string };
+    variables?: { [key: string]: any };
+    fallback?: boolean;
 }
 
 export interface SessionData {

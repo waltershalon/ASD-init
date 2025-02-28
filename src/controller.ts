@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import OpenAI from 'openai';
+import { ConversationResponse } from './interfaces';
 
 // Initialize OpenAI client with API key
 const openai = new OpenAI({
@@ -76,10 +77,15 @@ app.post('/conversation', async (req, res) => {
     if (!userMessage && req.body.optionalArgs?.kind === 'init') {
         // This is an initialization request, send a greeting
         console.log('Initialization request detected');
-        res.json({
-            answer: "Hi, I'm a parent of a child with autism. Feel free to ask me any questions about my experiences or how to better interact with individuals who have autism.",
-            answerAvailable: true
-        });
+        
+        // Changed response format to match Soul Machines template
+        const response: ConversationResponse = {
+            output: { 
+                text: "Hi, I'm a parent of a child with autism. Feel free to ask me any questions about my experiences or how to better interact with individuals who have autism." 
+            }
+        };
+        
+        res.json(response);
         return;
     }
     
@@ -159,10 +165,17 @@ app.post('/conversation', async (req, res) => {
 
         if (responseText.includes("Sorry") || responseText.trim() === "" || responseText.includes("AI") || responseText.includes("language model")) {
             console.log("Response contains filtered content, sending fallback");
-            res.json({ 
-                answer: "I'm just trying to share what I've experienced with my child. Can you clarify what you'd like to know about raising a child with autism?",
-                answerAvailable: true
-            });
+            
+            // Changed response format to match Soul Machines template
+            const fallbackResponse: ConversationResponse = {
+                input: { text: userMessage },
+                output: { 
+                    text: "I'm just trying to share what I've experienced with my child. Can you clarify what you'd like to know about raising a child with autism?" 
+                },
+                fallback: true
+            };
+            
+            res.json(fallbackResponse);
             return;
         }
 
@@ -173,17 +186,26 @@ app.post('/conversation', async (req, res) => {
         }
 
         console.log("Sending Soul Machines response:", responseText);
-        res.json({ 
-            answer: responseText,
-            answerAvailable: true
-        });
+        
+        // Changed response format to match Soul Machines template
+        const soulMachinesResponse: ConversationResponse = {
+            input: { text: userMessage },
+            output: { text: responseText }
+        };
+        
+        res.json(soulMachinesResponse);
 
     } catch (error) {
         console.error("Error in Soul Machines conversation:", error);
-        res.json({ 
-            answer: "I'm sorry, I'm having trouble organizing my thoughts right now. Could you give me a moment?",
-            answerAvailable: true
-        });
+        
+        // Changed response format to match Soul Machines template
+        const errorResponse: ConversationResponse = {
+            output: { 
+                text: "I'm sorry, I'm having trouble organizing my thoughts right now. Could you give me a moment?" 
+            }
+        };
+        
+        res.json(errorResponse);
     }
 });
 
@@ -201,10 +223,15 @@ app.post('/chat', async (req, res) => {
         // Handle Soul Machines initialization message
         if (!userMessage && req.body.optionalArgs?.kind === 'init') {
             console.log('Soul Machines initialization request detected in /chat endpoint');
-            res.json({
-                answer: "Hi, I'm a parent of a child with autism. Feel free to ask me any questions about my experiences or how to better interact with individuals who have autism.",
-                answerAvailable: true
-            });
+            
+            // Changed response format to match Soul Machines template
+            const initResponse: ConversationResponse = {
+                output: { 
+                    text: "Hi, I'm a parent of a child with autism. Feel free to ask me any questions about my experiences or how to better interact with individuals who have autism." 
+                }
+            };
+            
+            res.json(initResponse);
             return;
         }
 
@@ -284,16 +311,25 @@ app.post('/chat', async (req, res) => {
             sessionData.interactions++;
 
             console.log("Sending Soul Machines response from /chat endpoint:", responseText);
-            res.json({ 
-                answer: responseText,
-                answerAvailable: true
-            });
+            
+            // Changed response format to match Soul Machines template
+            const soulMachinesResponse: ConversationResponse = {
+                input: { text: userMessage },
+                output: { text: responseText }
+            };
+            
+            res.json(soulMachinesResponse);
         } catch (error) {
             console.error("Error handling Soul Machines request in /chat:", error);
-            res.json({ 
-                answer: "I'm sorry, I'm having trouble organizing my thoughts right now. Could you give me a moment?",
-                answerAvailable: true
-            });
+            
+            // Changed response format to match Soul Machines template
+            const errorResponse: ConversationResponse = {
+                output: { 
+                    text: "I'm sorry, I'm having trouble organizing my thoughts right now. Could you give me a moment?" 
+                }
+            };
+            
+            res.json(errorResponse);
         }
         return;
     }
