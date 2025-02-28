@@ -48,34 +48,40 @@ wss.on('connection', (ws: WebSocket) => {
                 const personaId = msgData.body.personaId || '1';
                 const turnId = msgData.body.variables?.Turn_Id || '';
                 const optionalArgs = msgData.body.optionalArgs || {};
-                const speakResults = optionalArgs.speakResults === true;
                 
-                console.log(`User message: "${userMessage}", personaId: ${personaId}, turnId: ${turnId}, speakResults: ${speakResults}`);
+                console.log(`User message: "${userMessage}", personaId: ${personaId}, turnId: ${turnId}`);
                 
-                // Directly call the controller logic without using fetch
+                // Create the request for the controller
+                const request: ConversationRequest = {
+                    input: { text: userMessage },
+                    optionalArgs: optionalArgs
+                };
+                
                 try {
-                    // Create a request to the same server but on the /conversation endpoint
+                    // Call the conversation endpoint
                     const serverUrl = process.env.SERVER_URL;
-                    const response = await axios.post(`${serverUrl}/conversation`, {
-                        input: { text: userMessage },
-                        personaId: personaId,
-                        optionalArgs: optionalArgs
-                    });
+                    const response = await axios.post(`${serverUrl}/conversation`, request);
                     
                     console.log('Response from conversation endpoint:', response.data);
                     
-                    // Format the response according to Soul Machines template
+                    // Create response object exactly as in Soul Machines template
+                    // Make sure to include Turn_Id from the original request
+                    const resp: ConversationResponse = response.data;
+                    
+                    // Add Turn_Id to variables if it exists in the original request
+                    if (turnId) {
+                        if (!resp.variables) {
+                            resp.variables = {};
+                        }
+                        resp.variables.Turn_Id = turnId;
+                    }
+                    
+                    // Format exactly as in Soul Machines template
                     const wsResponse: SMmessage = {
                         category: 'scene',
-                        kind: 'request', // Changed from 'event' to 'request'
+                        kind: 'request',
                         name: 'conversationResponse',
-                        body: {
-                            input: { text: userMessage },
-                            output: { text: response.data.answer }, // Changed structure to match template
-                            variables: {
-                                Turn_Id: turnId
-                            }
-                        }
+                        body: resp  // Use the entire response as the body
                     };
                     
                     console.log('Sending WebSocket response:', JSON.stringify(wsResponse));
@@ -91,9 +97,7 @@ wss.on('connection', (ws: WebSocket) => {
                         body: {
                             input: { text: userMessage },
                             output: { text: "I'm sorry, I'm having trouble with my thoughts right now. Could we try again?" },
-                            variables: {
-                                Turn_Id: turnId
-                            }
+                            variables: turnId ? { Turn_Id: turnId } : {}
                         }
                     };
                     
