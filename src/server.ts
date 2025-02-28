@@ -2,7 +2,8 @@ import express from 'express';
 import * as WebSocket from 'ws';
 import { createServer } from 'http';
 import dotenv from 'dotenv';
-import { app } from './controller';  // Import Express app from controller.ts
+import { app } from './controller';
+import axios from 'axios';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -11,20 +12,13 @@ const PORT = process.env.PORT || 5050;
 // Create HTTP server and integrate with Express
 const server = createServer(app);
 
-// Create WebSocket server, but don't intercept all WebSocket messages
-const wss = new WebSocket.Server({ 
-    server,
-    // This handler will only upgrade connections that don't match Soul Machines paths
-    verifyClient: (info) => {
-        // Accept connections to the root path, which is what Soul Machines uses
-        return true;
-    }
-});
+// WebSocket Server for Soul Machines
+const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws: WebSocket) => {
     console.log('WebSocket client connected');
     
-    ws.on('message', (message: string) => {
+    ws.on('message', async (message) => {
         try {
             const msgStr = message.toString();
             console.log('Received WebSocket message:', msgStr);
@@ -39,43 +33,62 @@ wss.on('connection', (ws: WebSocket) => {
                 // Extract the essential data from the request
                 const userMessage = msgData.body.input?.text || '';
                 const personaId = msgData.body.personaId || '1';
+                const turnId = msgData.body.variables?.Turn_Id || '';
+                const optionalArgs = msgData.body.optionalArgs || {};
                 
-                // Forward this to your controller logic
-                // You may need to modify your controller to handle this request format
-                fetch(`http://localhost:${PORT}/conversation`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
+                // Directly call the controller logic without using fetch
+                try {
+                    // Create a request to the same server but on the /conversation endpoint
+                    const serverUrl = process.env.SERVER_URL || `http://localhost:${PORT}`;
+                    const response = await axios.post(`${serverUrl}/conversation`, {
                         input: { text: userMessage },
                         personaId: personaId,
-                        optionalArgs: msgData.body.optionalArgs || {}
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Response from conversation endpoint:', data);
+                        optionalArgs: optionalArgs
+                    });
                     
-                    // Convert the response to the format expected by Soul Machines
+                    console.log('Response from conversation endpoint:', response.data);
+                    
+                    // Send response back via WebSocket in the format Soul Machines expects
                     const wsResponse = {
                         category: 'scene',
                         kind: 'event',
                         name: 'conversationResponse',
                         body: {
                             personaId: personaId,
+                            variables: {
+                                Turn_Id: turnId
+                            },
                             response: {
-                                answer: data.answer,
-                                answerAvailable: data.answerAvailable
+                                answer: response.data.answer,
+                                answerAvailable: true
                             }
                         }
                     };
                     
+                    console.log('Sending WebSocket response:', JSON.stringify(wsResponse));
                     ws.send(JSON.stringify(wsResponse));
-                })
-                .catch(error => {
-                    console.error('Error forwarding conversation request:', error);
-                });
+                } catch (error) {
+                    console.error('Error processing conversation request:', error);
+                    
+                    // Send an error response
+                    const errorResponse = {
+                        category: 'scene',
+                        kind: 'event',
+                        name: 'conversationResponse',
+                        body: {
+                            personaId: personaId,
+                            variables: {
+                                Turn_Id: turnId
+                            },
+                            response: {
+                                answer: "I'm sorry, I'm having trouble with my thoughts right now. Could we try again?",
+                                answerAvailable: true
+                            }
+                        }
+                    };
+                    
+                    ws.send(JSON.stringify(errorResponse));
+                }
             }
         } catch (error) {
             console.error('Error processing WebSocket message:', error);
