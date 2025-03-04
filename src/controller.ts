@@ -78,7 +78,7 @@ app.post('/conversation', async (req, res) => {
         // This is an initialization request, send a greeting
         console.log('Initialization request detected');
         
-        // Changed response format to match Soul Machines template
+        // Response format to match Soul Machines template
         const response: ConversationResponse = {
             output: { 
                 text: "Hi, I'm a parent of a child with autism. Feel free to ask me any questions about my experiences or how to better interact with individuals who have autism." 
@@ -166,7 +166,7 @@ app.post('/conversation', async (req, res) => {
         if (responseText.includes("Sorry") || responseText.trim() === "" || responseText.includes("AI") || responseText.includes("language model")) {
             console.log("Response contains filtered content, sending fallback");
             
-            // Changed response format to match Soul Machines template
+            // Response format to match Soul Machines template
             const fallbackResponse: ConversationResponse = {
                 input: { text: userMessage },
                 output: { 
@@ -187,7 +187,7 @@ app.post('/conversation', async (req, res) => {
 
         console.log("Sending Soul Machines response:", responseText);
         
-        // Changed response format to match Soul Machines template
+        // Response format to match Soul Machines template
         const soulMachinesResponse: ConversationResponse = {
             input: { text: userMessage },
             output: { text: responseText }
@@ -198,7 +198,7 @@ app.post('/conversation', async (req, res) => {
     } catch (error) {
         console.error("Error in Soul Machines conversation:", error);
         
-        // Changed response format to match Soul Machines template
+        // Response format to match Soul Machines template
         const errorResponse: ConversationResponse = {
             output: { 
                 text: "I'm sorry, I'm having trouble organizing my thoughts right now. Could you give me a moment?" 
@@ -213,18 +213,18 @@ app.post('/conversation', async (req, res) => {
 app.post('/chat', async (req, res) => {
     console.log('Received chat request:', JSON.stringify(req.body));
     
-    // Check if this is a Soul Machines request
+    // To Check if this is a Soul Machines request
     if (req.body.input && req.body.personaId) {
         console.log('Detected Soul Machines request format in /chat endpoint');
         
         const userMessage = req.body.input.text || '';
         const sessionId = req.body.personaId.toString() || 'default';
         
-        // Handle Soul Machines initialization message
+        // To Handle Soul Machines initialization message
         if (!userMessage && req.body.optionalArgs?.kind === 'init') {
             console.log('Soul Machines initialization request detected in /chat endpoint');
             
-            // Changed response format to match Soul Machines template
+            // Response format to match Soul Machines template
             const initResponse: ConversationResponse = {
                 output: { 
                     text: "Hi, I'm a parent of a child with autism. Feel free to ask me any questions about my experiences or how to better interact with individuals who have autism." 
@@ -312,7 +312,7 @@ app.post('/chat', async (req, res) => {
 
             console.log("Sending Soul Machines response from /chat endpoint:", responseText);
             
-            // Changed response format to match Soul Machines template
+            // Response format to match Soul Machines template
             const soulMachinesResponse: ConversationResponse = {
                 input: { text: userMessage },
                 output: { text: responseText }
@@ -322,7 +322,7 @@ app.post('/chat', async (req, res) => {
         } catch (error) {
             console.error("Error handling Soul Machines request in /chat:", error);
             
-            // Changed response format to match Soul Machines template
+            // Response format to match Soul Machines template
             const errorResponse: ConversationResponse = {
                 output: { 
                     text: "I'm sorry, I'm having trouble organizing my thoughts right now. Could you give me a moment?" 
